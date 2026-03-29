@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { ClerkProvider } from '@clerk/nextjs'
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
+import {QueryProvider} from "@/components/query-provider.jsx"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,8 +39,10 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
+            <QueryProvider>
             <TooltipProvider>{children}</TooltipProvider>
                   <Toaster/>
+            </QueryProvider>
           </ThemeProvider>
         </body>
       </ClerkProvider>

@@ -9,6 +9,8 @@ import {
 import z from "zod";
 import { PROMPT } from "@/prompt";
 import { lastAssistantTextMessageContent } from "./utlis";
+import db from "@/lib/db";
+import { MessageRole, MessageType } from "@prisma/client";
 
 export const codeAgentFunction = inngest.createFunction(
   { id: "code-agent" },
@@ -188,6 +190,38 @@ export const codeAgentFunction = inngest.createFunction(
         return `http://${host}`;
       }
     );
+ 
+
+    await step.run("save-result", async()=>{
+      if(isError){
+        return await db.message.create({
+          data:{
+            projectId:event.data.projectId,
+            content:"Something went wrong please try again",
+            role:MessageRole.ASSISTANT,
+            type:MessageType.ERROR
+          }
+        })
+      }
+
+      return await db.message.create({
+        data:{
+          project:event.data.projectId,
+          content:result.state.data.summary,
+          role:MessageRole.ASSISTANT,
+          type:MessageType.RESULT,
+          fragments:{
+            create:{
+              sandboxUrl:sandboxUrl,
+              title:"Untitled",
+              files:result.state.data.files
+            }
+          }
+        }
+      })
+    })
+
+
 
     // Step 5: Safe response extraction
 const message =

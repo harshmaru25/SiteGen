@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Form, FormField } from "@/components/ui/form";
 import { onInvoke } from "../actions";
-// import { useCreateProject } from "@/modules/projects/hooks/project";
+import {useCreateProject} from "@/modules/projects/hooks/project.js"
 
 const formSchema = z.object({
   content: z
@@ -75,7 +75,7 @@ const PROJECT_TEMPLATES = [
 const ProjectForm = () => {
   const [isFocused, setIsFocused] = useState(false);
   const router = useRouter();
-//   const { mutateAsync, isPending } = useCreateProject();
+  const { mutateAsync, isPending } = useCreateProject();
 
   const form = useForm({
     resolver: zodResolver(formSchema),
@@ -85,22 +85,22 @@ const ProjectForm = () => {
     mode: "onChange",
   });
 
-//   const handleTemplate = (prompt) => {
-//     form.setValue("content", prompt);
-//   };
+  const handleTemplate = (prompt) => {
+    form.setValue("content", prompt);
+  };
 
-//   const onSubmit = async (values) => {
-//     try {
-//       const res = await mutateAsync(values.content);
-//       router.push(`/projects/${res.id}`);
-//       toast.success("Project created successfully");
-//       form.reset();
-//     } catch (error) {
-//       toast.error(error.message || "Failed to create project");
-//     }
-//   };
+  const onSubmit = async (values) => {
+    try {
+      const res = await mutateAsync(values.content);
+      router.push(`/projects/${res.id}`);
+      toast.success("Project created successfully");
+      form.reset();
+    } catch (error) {
+      toast.error(error.message || "Failed to create project");
+    }
+  };
 
-//   const isButtonDisabled = isPending || !form.watch("content").trim();
+  const isButtonDisabled = isPending || !form.watch("content").trim();
 
 
   const onInvokeAI = async() => {
@@ -119,10 +119,6 @@ const ProjectForm = () => {
     <div className="space-y-8">
       {/* Templates Grid */}
 
-      <Button onClick={onInvoke} >
-        Invoke AI agent
-      </Button>
-
 
 
 
@@ -130,8 +126,8 @@ const ProjectForm = () => {
         {PROJECT_TEMPLATES.map((template, index) => (
           <button
             key={index}
-            // onClick={() => handleTemplate(template.prompt)}
-            // disabled={isPending}
+            onClick={() => handleTemplate(template.prompt)}
+            disabled={isPending}
             className="group relative p-4 rounded-xl border bg-card hover:bg-accent/50 transition-all duration-200 text-left disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-md hover:border-primary/30"
           >
             <div className="flex flex-col gap-2">
@@ -162,7 +158,7 @@ const ProjectForm = () => {
       {/* Form */}
       <Form {...form}>
         <form
-        //   onSubmit={form.handleSubmit(onSubmit)}
+          onSubmit={form.handleSubmit(onSubmit)}
           className={cn(
             "relative border p-4 pt-1 rounded-xl bg-sidebar dark:bg-sidebar transition-all",
             isFocused && "shadow-lg ring-2 ring-primary/20"
@@ -174,7 +170,7 @@ const ProjectForm = () => {
             render={({ field }) => (
               <TextAreaAutosize
                 {...field}
-                // disabled={isPending}
+                disabled={isPending}
                 placeholder="Describe what you want to create..."
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
@@ -182,12 +178,12 @@ const ProjectForm = () => {
                 maxRows={8}
                 className={cn(
                   "pt-4 resize-none border-none w-full outline-none bg-transparent",
-                //   isPending && "opacity-50"
+                  isPending && "opacity-50"
                 )}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
                     e.preventDefault();
-                    // form.handleSubmit(onSubmit)(e);
+                    form.handleSubmit(onSubmit)(e);
                   }
                 }}
               />
@@ -200,7 +196,7 @@ const ProjectForm = () => {
               </kbd>
               &nbsp; to submit
             </div>
-            {/* <Button
+            <Button
               className={cn(
                 "size-8 rounded-full",
                 isButtonDisabled && "bg-muted-foreground border"
@@ -213,7 +209,7 @@ const ProjectForm = () => {
               ) : (
                 <ArrowUpIcon className="size-4" />
               )}
-            </Button> */}
+            </Button>
           </div>
         </form>
       </Form>
