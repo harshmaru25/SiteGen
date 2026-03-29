@@ -1,29 +1,40 @@
 "use server";
 
-import { inngest } from "@/inngest/client";
+import { inngest } from "../../../inngest/client";
 import db from "@/lib/db";
-import { getCurrentUser } from "@/modules/auth/actions";
 import { MessageRole, MessageType } from "@prisma/client";
 import { generateSlug } from "random-word-slugs";
+import { getCurrentUser } from "@/modules/auth/actions";
+import { consumeCredits } from "@/lib/usage";
 
-// ✅ CREATE PROJECT
+export const getProjects = async () => {
+  const user = await getCurrentUser();
+  if (!user) throw new Error("Unauthorized");
+
+  return await db.project.findMany({
+    where: {
+      userId: user.id,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+};
+
 export const createProject = async (value) => {
   const user = await getCurrentUser();
+  if (!user) throw new Error("Unauthorized");
 
-  if (!user) {
-    throw new Error("Unauthorized");
+  try {
+    await consumeCredits();
+  } catch (error) {
+    throw new Error("Usage limit reached. Please try again later.");
   }
 
   const newProject = await db.project.create({
     data: {
       name: generateSlug(2, { format: "kebab" }),
-
-      // ✅ Correct relation (IMPORTANT)
-      user: {
-        connect: { id: user.id },
-      },
-
-      // ✅ Correct plural relation
+      userId: user.id,
       messages: {
         create: {
           content: value,
@@ -34,7 +45,6 @@ export const createProject = async (value) => {
     },
   });
 
-  // ✅ Trigger background job
   await inngest.send({
     name: "code-agent/run",
     data: {
@@ -46,38 +56,18 @@ export const createProject = async (value) => {
   return newProject;
 };
 
-// ✅ GET ALL PROJECTS
-export const getProjects = async () => {
+export const getProjectById = async (input) => {
+  // ✅ FIX: Extract string from object if Next.js passes 'params'
+  const projectId = typeof input === 'object' ? input.projectId : input;
+
   const user = await getCurrentUser();
+  if (!user) throw new Error("Unauthorized");
 
-  if (!user) {
-    throw new Error("Unauthorized");
-  }
-
-  const projects = await db.project.findMany({
-    where: {
-      userID: user.id, // ✅ must match schema
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
-
-  return projects;
-};
-
-// ✅ GET SINGLE PROJECT
-export const getProjectById = async (projectId) => {
-  const user = await getCurrentUser();
-
-  if (!user) {
-    throw new Error("Unauthorized");
-  }
-
+  // ✅ FIX: Use findFirst (findUnique only allows ID-only lookups)
   const project = await db.project.findFirst({
     where: {
       id: projectId,
-      userID: user.id, // ✅ correct field
+      userId: user.id,
     },
     include: {
       messages: {
@@ -88,9 +78,7 @@ export const getProjectById = async (projectId) => {
     },
   });
 
-  if (!project) {
-    throw new Error("Project not found");
-  }
+  if (!project) throw new Error("Project not found");
 
   return project;
 };
