@@ -1,3 +1,4 @@
+"use client"
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { MessageRole, MessageType } from "@prisma/client";

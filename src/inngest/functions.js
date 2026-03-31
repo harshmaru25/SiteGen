@@ -1,30 +1,30 @@
 import Sandbox from "@e2b/code-interpreter";
 import { inngest } from "./client";
 import {
-  Agent,
   gemini,
   createAgent,
   createTool,
   createNetwork,
   createState,
 } from "@inngest/agent-kit";
-import z, { json } from "zod";
+import z from "zod";
 import { FRAGMENT_TITLE_PROMPT, PROMPT, RESPONSE_PROMPT } from "../prompt";
-import { lastAssistantTextMessageContent } from "./utils";
+import { lastAssistantTextMessageContent } from "./utlis.ts";
 import db from "../lib/db";
 import { MessageRole, MessageType } from "@prisma/client";
 
 export const codeAgentFunction = inngest.createFunction(
   { id: "code-agent" },
-
   { event: "code-agent/run" },
 
   async ({ event, step }) => {
+    // ✅ Create sandbox
     const sandboxId = await step.run("get-sandbox-id", async () => {
       const sandbox = await Sandbox.create("v0-clone-nextjs-build");
       return sandbox.sandboxId;
     });
 
+    // ✅ Get previous messages
     const previousMessages = await step.run(
       "get-previous-messages",
       async () => {
@@ -51,6 +51,7 @@ export const codeAgentFunction = inngest.createFunction(
       }
     );
 
+    // ✅ State
     const state = createState(
       {
         summary: "",
@@ -61,15 +62,18 @@ export const codeAgentFunction = inngest.createFunction(
       }
     );
 
+    // ✅ Agent
     const codeAgent = createAgent({
       name: "code-agent",
       description: "An expert coding agent",
       system: PROMPT,
       model: gemini({ model: "gemini-2.5-flash" }),
+
       tools: [
+        // 🔧 Terminal tool
         createTool({
           name: "terminal",
-          description: "Use the terminal to run commands",
+          description: "Run terminal commands",
           parameters: z.object({
             command: z.string(),
           }),
@@ -80,29 +84,22 @@ export const codeAgentFunction = inngest.createFunction(
               try {
                 const sandbox = await Sandbox.connect(sandboxId);
                 const result = await sandbox.commands.run(command, {
-                  onStdout: (data) => {
-                    buffers.stdout += data;
-                  },
-                  onStderr: (data) => {
-                    buffers.stderr += data;
-                  },
+                  onStdout: (data) => (buffers.stdout += data),
+                  onStderr: (data) => (buffers.stderr += data),
                 });
 
                 return result.stdout;
               } catch (error) {
-                console.log(
-                  `Command failed: ${error} \n stdout: ${buffers.stdout}\n stderr: ${buffers.stderr}`
-                );
-
-                return `Command failed: ${error} \n stdout: ${buffers.stdout}\n stderr: ${buffers.stderr}`;
+                return `Command failed: ${error}\nstdout: ${buffers.stdout}\nstderr: ${buffers.stderr}`;
               }
             });
           },
         }),
 
+        // 📁 Create/update files
         createTool({
           name: "createOrUpdateFiles",
-          description: "Create or update files in the sandbox",
+          description: "Create or update files",
           parameters: z.object({
             files: z.array(
               z.object({
@@ -118,13 +115,15 @@ export const codeAgentFunction = inngest.createFunction(
                 try {
                   const updatedFiles = network?.state?.data.files || {};
                   const sandbox = await Sandbox.connect(sandboxId);
+
                   for (const file of files) {
                     await sandbox.files.write(file.path, file.content);
                     updatedFiles[file.path] = file.content;
                   }
+
                   return updatedFiles;
                 } catch (error) {
-                  return "Error" + error;
+                  return "Error: " + error;
                 }
               }
             );
@@ -135,9 +134,10 @@ export const codeAgentFunction = inngest.createFunction(
           },
         }),
 
+        // 📖 Read files
         createTool({
           name: "readFiles",
-          description: "Read files in the sandbox",
+          description: "Read files",
           parameters: z.object({
             files: z.array(z.string()),
           }),
@@ -154,7 +154,7 @@ export const codeAgentFunction = inngest.createFunction(
 
                 return JSON.stringify(contents);
               } catch (error) {
-                return "Error" + error;
+                return "Error: " + error;
               }
             });
           },
@@ -163,12 +163,12 @@ export const codeAgentFunction = inngest.createFunction(
 
       lifecycle: {
         onResponse: async ({ result, network }) => {
-          const lastAssistantMessageText =
+          const lastText =
             lastAssistantTextMessageContent(result);
 
-          if (lastAssistantMessageText && network) {
-            if (lastAssistantMessageText.includes("<task_summary>")) {
-              network.state.data.summary = lastAssistantMessageText;
+          if (lastText && network) {
+            if (lastText.includes("<task_summary>")) {
+              network.state.data.summary = lastText;
             }
           }
 
@@ -177,82 +177,78 @@ export const codeAgentFunction = inngest.createFunction(
       },
     });
 
+    // ✅ Network
     const network = createNetwork({
       name: "coding-agent-network",
       agents: [codeAgent],
       maxIter: 10,
       defaultState: state,
       router: async ({ network }) => {
-        const summary = network.state.data.summary;
-
-        if (summary) {
-          return;
-        }
+        if (network.state.data.summary) return;
         return codeAgent;
       },
     });
 
     const result = await network.run(event.data.value, { state });
 
+    // ✅ Title generator
     const fragmentTitleGenerator = createAgent({
       name: "fragment-title-generator",
-      description: "Generate a title for the fragment",
+      description: "Generate title",
       system: FRAGMENT_TITLE_PROMPT,
       model: gemini({ model: "gemini-2.5-flash" }),
     });
 
+    // ✅ Response generator
     const responseGenerator = createAgent({
       name: "response-generator",
-      description: "Generate a response for the fragment",
+      description: "Generate response",
       system: RESPONSE_PROMPT,
       model: gemini({ model: "gemini-2.5-flash" }),
     });
 
-    const { output: fragmentTitleOutput } = await fragmentTitleGenerator.run(
-      result.state.data.summary
-    );
-    const { output: responseOutput } = await responseGenerator.run(
-      result.state.data.summary
-    );
+    const { output: fragmentTitleOutput } =
+      await fragmentTitleGenerator.run(result.state.data.summary);
 
+    const { output: responseOutput } =
+      await responseGenerator.run(result.state.data.summary);
+
+    // ✅ Helpers
     const generateFragmentTitle = () => {
-      if (fragmentTitleOutput[0].type !== "text") {
-        return "Fragment";
-      }
+      if (fragmentTitleOutput[0]?.type !== "text") return "Fragment";
 
-      if (Array.isArray(fragmentTitleOutput[0].content)) {
-        return fragmentTitleOutput[0].content.map((c) => c).join("");
-      } else {
-        return fragmentTitleOutput[0].content;
-      }
+      return Array.isArray(fragmentTitleOutput[0].content)
+        ? fragmentTitleOutput[0].content.join("")
+        : fragmentTitleOutput[0].content;
     };
 
     const generateResponse = () => {
-      if (responseOutput[0].type !== "text") {
-        return "Here you go";
-      }
+      if (responseOutput[0]?.type !== "text") return "Here you go";
 
-      if (Array.isArray(responseOutput[0].content)) {
-        return responseOutput[0].content.map((c) => c).join("");
-      } else {
-        return responseOutput[0].content;
-      }
+      return Array.isArray(responseOutput[0].content)
+        ? responseOutput[0].content.join("")
+        : responseOutput[0].content;
     };
 
+    const title = generateFragmentTitle();
+    const response = generateResponse();
+
+    // ✅ Error check
     const isError =
       !result.state.data.summary ||
       Object.keys(result.state.data.files || {}).length === 0;
 
+    // ✅ Sandbox URL
     const sandboxUrl = await step.run("get-sandbox-url", async () => {
       const sandbox = await Sandbox.connect(sandboxId);
       const host = sandbox.getHost(3000);
-
       return `http://${host}`;
     });
 
+    // ✅ Save to DB
     await step.run("save-result", async () => {
       if (isError) {
-        return await db.message.create({
+        return db.message.create({
           data: {
             projectId: event.data.projectId,
             content: "Something went wrong. Please try again.",
@@ -262,16 +258,16 @@ export const codeAgentFunction = inngest.createFunction(
         });
       }
 
-      return await db.message.create({
+      return db.message.create({
         data: {
           projectId: event.data.projectId,
-          content: generateResponse(),
+          content: response,
           role: MessageRole.ASSISTANT,
           type: MessageType.RESULT,
           fragments: {
             create: {
-              sandboxUrl: sandboxUrl,
-              title: generateFragmentTitle(),
+              sandboxUrl,
+              title,
               files: result.state.data.files,
             },
           },
@@ -279,12 +275,10 @@ export const codeAgentFunction = inngest.createFunction(
       });
     });
 
+    // ✅ FINAL RETURN (FIXED)
     return {
       url: sandboxUrl,
-      title:
-        fragmentTitle[0].type === "text"
-          ? fragmentTitle[0].content
-          : "Fragment",
+      title: title,
       files: result.state.data.files,
       summary: result.state.data.summary,
     };
