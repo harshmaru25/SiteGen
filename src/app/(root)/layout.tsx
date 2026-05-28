@@ -1,5 +1,6 @@
 import { onBoardUser } from '@/modules/auth/actions'
 import Navbar from '@/modules/home/components/navbar'
+import { auth } from '@clerk/nextjs/server'
 import React from 'react'
 
 type LayoutProps = {
@@ -7,7 +8,10 @@ type LayoutProps = {
 }
 
 const Layout = async ({ children }: LayoutProps) => {
-  await onBoardUser()
+  const { userId } = await auth()
+  if (userId) {
+    await onBoardUser()
+  }
 
   return (
     <div className='flex flex-col min-h-screen relative overflow-x-hidden'>

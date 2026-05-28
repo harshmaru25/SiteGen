@@ -22,12 +22,12 @@ const FragmentWeb = ({ data }) => {
   return (
     <div className="flex flex-col w-full h-full">
       <div className="p-2 border-b bg-sidebar flex items-center gap-x-2">
-        <Hint text={"Refresh"} side={"bottom"} align={"start"}>
+        <Hint label={"Refresh"} side={"bottom"} align={"start"}>
             <Button size={"sm"} variant={"outline"} onClick={onRefresh}>
           <RefreshCcw />
         </Button>
         </Hint>
-        <Hint text={copied ? "Copied" : "Click to copy"} side={"bottom"} align={"start"}>
+        <Hint label={copied ? "Copied" : "Click to copy"} side={"bottom"} align={"start"}>
         <Button
           size={"sm"}
           variant={"outline"}
@@ -38,7 +38,7 @@ const FragmentWeb = ({ data }) => {
           <span className="truncate">{data.sandboxUrl}</span>
         </Button>
         </Hint>
-        <Hint text={"Open in new tab"} side={"bottom"} align={"start"}>
+        <Hint label={"Open in new tab"} side={"bottom"} align={"start"}>
         <Button
           size={"sm"}
           variant={"outline"}
@@ -56,7 +56,7 @@ const FragmentWeb = ({ data }) => {
       <iframe
         key={fragmentKey}
         className="h-full w-full"
-        sandbox="allow-scripts allow-same-origin allow-scripts"
+        sandbox="allow-scripts allow-same-origin"
         loading="lazy"
         src={data.sandboxUrl}
       />

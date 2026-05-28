@@ -36,7 +36,7 @@ const FileBreadcrumb = ({ filePath }) => {
               {isLast ? (
                 <BreadcrumbPage>{segment}</BreadcrumbPage>
               ) : (
-                <span className="text-muted-foreground+">{segment}</span>
+                <span className="text-muted-foreground">{segment}</span>
               )}
             </BreadcrumbItem>
             {!isLast && <BreadcrumbSeparator />}
@@ -51,14 +51,14 @@ const FileBreadcrumb = ({ filePath }) => {
         <>
           <BreadcrumbItem>
             <span className="text-muted-foreground">{firstSegment}</span>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbEllipsis />
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem className="font-medium">
-              {lastSegment}
-            </BreadcrumbItem>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbEllipsis />
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem className="font-medium">
+            {lastSegment}
           </BreadcrumbItem>
         </>
       );
@@ -124,12 +124,12 @@ export const FileExplorer = ({ files }) => {
   }, [selectedFile, files]);
 
   return (
-    <ResizablePanelGroup direction="horizontal" className="h-full">
+    <ResizablePanelGroup direction="horizontal" className="h-full min-h-0 overflow-hidden">
       <ResizablePanel
         defaultSize={25}
         minSize={20}
-        maxSize={40}
-        className="bg-sidebar"
+        maxSize={6000}
+        className="bg-sidebar h-full min-h-0 overflow-auto"
       >
         <div className="h-full overflow-auto">
           <TreeView

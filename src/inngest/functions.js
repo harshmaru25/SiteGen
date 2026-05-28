@@ -1,4 +1,4 @@
-import Sandbox from "@e2b/code-interpreter";
+import { Sandbox } from "@e2b/code-interpreter";
 import { inngest } from "./client";
 import {
   gemini,
@@ -14,8 +14,14 @@ import db from "../lib/db";
 import { MessageRole, MessageType } from "@prisma/client";
 
 export const codeAgentFunction = inngest.createFunction(
-  { id: "code-agent" },
-  { event: "code-agent/run" },
+  {
+    id: "code-agent",
+    triggers: [
+      {
+        event: "code-agent/run",
+      },
+    ],
+  },
 
   async ({ event, step }) => {
     // ✅ Create sandbox

@@ -17,7 +17,7 @@ import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 export const TreeView = ({ data, value, onSelect }) => {
   return (
-    <SidebarProvider>
+    <SidebarProvider style={{ ["--sidebar-width"]: "100%" }}  >
       <Sidebar collapsible="none" className="w-full">
         <SidebarContent>
           <SidebarGroup>
